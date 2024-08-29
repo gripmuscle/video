@@ -1,5 +1,6 @@
 streamlit
 ffmpeg
+disutils
 psutil
 lib-platform
 gputil
