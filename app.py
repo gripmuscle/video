@@ -2,60 +2,12 @@ import os
 import shutil
 import zipfile
 import subprocess
+import platform
+import psutil
 import streamlit as st
 from pathlib import Path
 from typing import List
-import platform
-import psutil
-import GPUtil
 
-# Utility Functions for System Info
-
-def get_system_info():
-    """Retrieve and format system information."""
-    system_info = platform.uname()
-    cpu_info = platform.processor()
-    cpu_count = psutil.cpu_count(logical=False)
-    logical_cpu_count = psutil.cpu_count(logical=True)
-    memory_info = psutil.virtual_memory()
-    disk_info = psutil.disk_usage('/')
-    
-    return {
-        "System": system_info.system,
-        "Node Name": system_info.node,
-        "Release": system_info.release,
-        "Version": system_info.version,
-        "Machine": system_info.machine,
-        "Processor": cpu_info,
-        "Physical Cores": cpu_count,
-        "Logical Cores": logical_cpu_count,
-        "Total Memory": f"{memory_info.total} bytes",
-        "Available Memory": f"{memory_info.available} bytes",
-        "Used Memory": f"{memory_info.used} bytes",
-        "Memory Utilization": f"{memory_info.percent}%",
-        "Total Disk Space": f"{disk_info.total} bytes",
-        "Used Disk Space": f"{disk_info.used} bytes",
-        "Free Disk Space": f"{disk_info.free} bytes",
-        "Disk Space Utilization": f"{disk_info.percent}%"
-    }
-
-# Streamlit App
-
-def main():
-    st.title("Bulk Video Processor and System Info")
-
-    # Display system information
-    st.header("System Information")
-    system_info, gpu_info = get_system_info()
-    
-    st.write("### System Details")
-    for key, value in system_info.items():
-        st.write(f"{key}: {value}")
-
-    st.write("### GPU Details")
-    for gpu in gpu_info:
-        for key, value in gpu.items():
-            st.write(f"{key}: {value}")
 # Utility Functions
 
 def run_ffmpeg_command(cmd):
@@ -162,6 +114,35 @@ def insert_clip(base_video, clip_to_insert, position, output_path):
 
 # Streamlit App
 
+def get_system_info():
+    """Retrieve system information and return as a dictionary."""
+    system_info = platform.uname()
+    cpu_count = psutil.cpu_count(logical=False)
+    logical_cpu_count = psutil.cpu_count(logical=True)
+    memory_info = psutil.virtual_memory()
+    disk_info = psutil.disk_usage('/')
+
+    info = {
+        "System": system_info.system,
+        "Node Name": system_info.node,
+        "Release": system_info.release,
+        "Version": system_info.version,
+        "Machine": system_info.machine,
+        "Processor": system_info.processor,
+        "Physical Cores": cpu_count,
+        "Logical Cores": logical_cpu_count,
+        "Total Memory": f"{memory_info.total / (1024 ** 3):.2f} GB",
+        "Available Memory": f"{memory_info.available / (1024 ** 3):.2f} GB",
+        "Used Memory": f"{memory_info.used / (1024 ** 3):.2f} GB",
+        "Memory Utilization": f"{memory_info.percent}%",
+        "Total Disk Space": f"{disk_info.total / (1024 ** 3):.2f} GB",
+        "Used Disk Space": f"{disk_info.used / (1024 ** 3):.2f} GB",
+        "Free Disk Space": f"{disk_info.free / (1024 ** 3):.2f} GB",
+        "Disk Space Utilization": f"{disk_info.percent}%"
+    }
+    
+    return info
+
 @st.cache_data
 def process_videos(zip_files, split_times, clips_to_insert, insert_position):
     """Process videos from ZIP files: split, insert clips, and concatenate."""
@@ -205,17 +186,32 @@ def process_videos(zip_files, split_times, clips_to_insert, insert_position):
 def main():
     st.title("Bulk Video Processor")
 
+    # Display system information
+    st.header("System Information")
+    sys_info = get_system_info()
+    for key, value in sys_info.items():
+        st.write(f"{key}: {value}")
+
     st.header("Upload ZIP Files")
     zip_files = st.file_uploader("Upload ZIP files", type=["zip"], accept_multiple_files=True)
 
+    st.header("Split Times")
     split_times_input = st.text_input("Split Times (e.g., 0,10;20,30)", "0,10;20,30")
+    try:
+        split_times = [tuple(map(float, time_range.split(','))) for time_range in split_times_input.split(';') if time_range]
+    except ValueError:
+        st.error("Invalid format for split times. Please use the format 'start,end;start,end'.")
+        split_times = []
+
+    st.header("Upload Clips to Insert")
     clips_to_insert = st.file_uploader("Upload Clips to Insert", type=["mp4"], accept_multiple_files=True)
+    
+    st.header("Insert Position")
     insert_position = st.selectbox("Insert Position", ["start", "end", "between"])
 
     if st.button("Process Videos"):
-        if zip_files and clips_to_insert:
+        if zip_files and clips_to_insert and split_times:
             try:
-                split_times = [tuple(map(float, time_range.split(','))) for time_range in split_times_input.split(';')]
                 with st.spinner("Processing videos..."):
                     output_file = process_videos(zip_files, split_times, clips_to_insert, insert_position)
                     st.success(f"Processing complete! Download the final video: {output_file}")
@@ -223,7 +219,7 @@ def main():
             except Exception as e:
                 st.error(f"An error occurred: {e}")
         else:
-            st.error("Please upload ZIP files and clips to insert.")
+            st.error("Please upload all required files and input data.")
 
 if __name__ == "__main__":
     main()
