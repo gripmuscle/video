@@ -20,24 +20,6 @@ def get_system_info():
     memory_info = psutil.virtual_memory()
     disk_info = psutil.disk_usage('/')
     
-    # Collect GPU information
-    gpus = GPUtil.getGPUs()
-    gpu_info = []
-    if gpus:
-        for i, gpu in enumerate(gpus):
-            gpu_info.append({
-                "ID": gpu.id,
-                "Name": gpu.name,
-                "Driver": gpu.driver,
-                "GPU Memory Total": f"{gpu.memoryTotal} MB",
-                "GPU Memory Free": f"{gpu.memoryFree} MB",
-                "GPU Memory Used": f"{gpu.memoryUsed} MB",
-                "GPU Load": f"{gpu.load * 100}%",
-                "GPU Temperature": f"{gpu.temperature}°C"
-            })
-    else:
-        gpu_info.append({"No GPU detected": ""})
-    
     return {
         "System": system_info.system,
         "Node Name": system_info.node,
@@ -55,7 +37,7 @@ def get_system_info():
         "Used Disk Space": f"{disk_info.used} bytes",
         "Free Disk Space": f"{disk_info.free} bytes",
         "Disk Space Utilization": f"{disk_info.percent}%"
-    }, gpu_info
+    }
 
 # Streamlit App
 
