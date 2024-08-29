@@ -5,7 +5,75 @@ import subprocess
 import streamlit as st
 from pathlib import Path
 from typing import List
+import platform
+import psutil
+import GPUtil
 
+# Utility Functions for System Info
+
+def get_system_info():
+    """Retrieve and format system information."""
+    system_info = platform.uname()
+    cpu_info = platform.processor()
+    cpu_count = psutil.cpu_count(logical=False)
+    logical_cpu_count = psutil.cpu_count(logical=True)
+    memory_info = psutil.virtual_memory()
+    disk_info = psutil.disk_usage('/')
+    
+    # Collect GPU information
+    gpus = GPUtil.getGPUs()
+    gpu_info = []
+    if gpus:
+        for i, gpu in enumerate(gpus):
+            gpu_info.append({
+                "ID": gpu.id,
+                "Name": gpu.name,
+                "Driver": gpu.driver,
+                "GPU Memory Total": f"{gpu.memoryTotal} MB",
+                "GPU Memory Free": f"{gpu.memoryFree} MB",
+                "GPU Memory Used": f"{gpu.memoryUsed} MB",
+                "GPU Load": f"{gpu.load * 100}%",
+                "GPU Temperature": f"{gpu.temperature}°C"
+            })
+    else:
+        gpu_info.append({"No GPU detected": ""})
+    
+    return {
+        "System": system_info.system,
+        "Node Name": system_info.node,
+        "Release": system_info.release,
+        "Version": system_info.version,
+        "Machine": system_info.machine,
+        "Processor": cpu_info,
+        "Physical Cores": cpu_count,
+        "Logical Cores": logical_cpu_count,
+        "Total Memory": f"{memory_info.total} bytes",
+        "Available Memory": f"{memory_info.available} bytes",
+        "Used Memory": f"{memory_info.used} bytes",
+        "Memory Utilization": f"{memory_info.percent}%",
+        "Total Disk Space": f"{disk_info.total} bytes",
+        "Used Disk Space": f"{disk_info.used} bytes",
+        "Free Disk Space": f"{disk_info.free} bytes",
+        "Disk Space Utilization": f"{disk_info.percent}%"
+    }, gpu_info
+
+# Streamlit App
+
+def main():
+    st.title("Bulk Video Processor and System Info")
+
+    # Display system information
+    st.header("System Information")
+    system_info, gpu_info = get_system_info()
+    
+    st.write("### System Details")
+    for key, value in system_info.items():
+        st.write(f"{key}: {value}")
+
+    st.write("### GPU Details")
+    for gpu in gpu_info:
+        for key, value in gpu.items():
+            st.write(f"{key}: {value}")
 # Utility Functions
 
 def run_ffmpeg_command(cmd):
