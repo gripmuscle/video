@@ -1,3 +1,2 @@
 ffmpeg
-distutils
 python3-distutils
